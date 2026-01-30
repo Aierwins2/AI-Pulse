@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-950 text-gray-100 antialiased;
+  }
+}
+
+@layer components {
+  .card-gradient {
+    @apply bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700/50;
+  }
+
+  .category-badge {
+    @apply px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider;
+  }
+
+  .category-tech {
+    @apply bg-blue-500/20 text-blue-400 border border-blue-500/30;
+  }
+
+  .category-benchmark {
+    @apply bg-emerald-500/20 text-emerald-400 border border-emerald-500/30;
+  }
+
+  .category-product {
+    @apply bg-amber-500/20 text-amber-400 border border-amber-500/30;
+  }
+
+  .category-insights {
+    @apply bg-red-500/20 text-red-400 border border-red-500/30;
+  }
+
+  .glow-effect {
+    @apply shadow-lg shadow-pulse-primary/20;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-pulse-primary to-pulse-secondary bg-clip-text text-transparent;
+  }
+}
