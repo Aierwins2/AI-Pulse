@@ -180,6 +180,10 @@ class AIProcessor:
 
     async def _call_api(self, prompt: str) -> Optional[str]:
         """调用 dashscope API"""
+        if not self.api_key:
+            print("警告: DASHSCOPE_API_KEY 未配置")
+            return None
+
         messages = [
             {"role": "system", "content": "你是一个专业的AI行业分析师，擅长对AI领域的文章进行分类和摘要。"},
             {"role": "user", "content": prompt}
@@ -195,11 +199,18 @@ class AIProcessor:
                 result_format="message"
             )
 
-            if response and response.output:
-                content = response.output.choices[0].message.content
-                return content.strip()
+            # 更健壮的响应检查
+            if response and hasattr(response, 'output') and response.output:
+                if hasattr(response.output, 'choices') and response.output.choices:
+                    choice = response.output.choices[0]
+                    if hasattr(choice, 'message') and choice.message:
+                        content = getattr(choice.message, 'content', None)
+                        if content:
+                            return content.strip()
+
+            # 打印响应以便调试
+            print(f"API 响应格式异常: {response}")
+            return None
         except Exception as e:
             print(f"API 调用失败: {e}")
             return None
-
-        return None
