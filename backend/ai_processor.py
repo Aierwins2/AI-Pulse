@@ -123,8 +123,8 @@ class AIProcessor:
             cat = article.get("category", "unknown")
             category_stats[cat] = category_stats.get(cat, 0) + 1
 
-            title = article.get("title", "")
-            summary = article.get("summary", article.get("original_content", ""))[:100]
+            title = article.get("title") or ""
+            summary = (article.get("summary") or article.get("original_content") or "")[:100]
             article_summaries.append(f"- {title}: {summary}")
 
         articles_text = "\n".join(article_summaries[:20])
