@@ -8,13 +8,16 @@ services:
       dockerfile: Dockerfile.backend
     container_name: aipulse-backend
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
-      - DATABASE_URL=sqlite+aiosqlite:///./data/aipulse.db
-      - DATA_RETENTION_DAYS=7
-      - CRAWLER_SCHEDULE_HOUR=9
-      - CRAWLER_SCHEDULE_MINUTE=0
-      - AI_MODEL=qwen-plus
+      - DATABASE_URL=${DATABASE_URL:-sqlite+aiosqlite:///./data/aipulse.db}
+      - DATA_RETENTION_DAYS=${DATA_RETENTION_DAYS:-7}
+      - CRAWLER_SCHEDULE_HOUR=${CRAWLER_SCHEDULE_HOUR:-9}
+      - CRAWLER_SCHEDULE_MINUTE=${CRAWLER_SCHEDULE_MINUTE:-0}
+      - AI_MODEL=${AI_MODEL:-qwen-plus}
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
     volumes:
       - ./data:/app/data  # 持久化数据库
     ports:
@@ -24,6 +27,11 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # 前端服务
   frontend:
@@ -31,13 +39,20 @@ services:
       context: .
       dockerfile: Dockerfile.frontend
       args:
-        - VITE_API_URL=http://localhost:8000
+        # 前端通过 nginx 反向代理访问 API，使用相对路径
+        - VITE_API_URL=${VITE_API_URL:-}
     container_name: aipulse-frontend
     restart: unless-stopped
     ports:
       - "80:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 networks:
   default:
