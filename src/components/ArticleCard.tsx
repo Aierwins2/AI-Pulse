@@ -23,6 +23,7 @@ const categoryColorMap: Record<Category, string> = {
   'tech-innovation': 'text-blue-400',
   'benchmarking': 'text-emerald-400',
   'product': 'text-amber-400',
+  'insights': 'text-purple-400',
 }
 
 export function ArticleCard({ article, onToggleFavorite }: ArticleCardProps) {
