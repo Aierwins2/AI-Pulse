@@ -210,6 +210,15 @@ async def trigger_crawl():
     return result
 
 
+@app.post("/api/trend/generate")
+async def generate_trend():
+    """手动生成今日趋势总结"""
+    from datetime import datetime
+    today = datetime.now().strftime("%Y-%m-%d")
+    await scheduler.generate_trend_for_date(today)
+    return {"status": "success", "message": f"已为 {today} 生成趋势总结"}
+
+
 @app.get("/api/categories")
 async def get_categories():
     """获取分类列表"""
