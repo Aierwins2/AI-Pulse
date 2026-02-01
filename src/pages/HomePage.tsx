@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Cpu, BarChart3, Rocket, ArrowRight, RefreshCw, Star } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { ArticleCard, TrendCard, FilterBar } from '../components'
+import { ArticleCard, TrendCard } from '../components'
 import { getArticles, getStats, getTrend, toggleFavorite } from '../api'
 import type { Article, TrendSummary, Stats } from '../api'
 import type { Category } from '../types'
@@ -107,7 +107,8 @@ export function HomePage() {
       category: a.category as Category,
       source: a.source,
       sourceUrl: a.source_url,
-      publishedAt: a.collected_at.split('T')[0],
+      // 优先使用发布日期，没有则使用采集日期
+      publishedAt: (a.published_at || a.collected_at).split('T')[0],
       tags: a.tags,
       author: a.author || undefined,
       subCategory: a.sub_category || undefined,

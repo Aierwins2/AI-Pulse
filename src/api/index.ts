@@ -2,7 +2,8 @@
  * API 服务模块 - 与后端通信
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+// 生产环境使用相对路径（通过 nginx 代理），开发环境使用环境变量
+const API_BASE_URL = import.meta.env.VITE_API_URL || ''
 
 // 文章类型
 export interface Article {

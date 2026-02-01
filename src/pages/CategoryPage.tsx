@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, Cpu, BarChart3, Rocket, RefreshCw, Star } from 'lucide-react'
+import { ArrowLeft, Cpu, BarChart3, Rocket, RefreshCw } from 'lucide-react'
 import { ArticleCard } from '../components'
 import { getArticles, getStats, toggleFavorite } from '../api'
 import type { Article, Stats } from '../api'
@@ -75,7 +75,8 @@ export function CategoryPage() {
       category: a.category as Category,
       source: a.source,
       sourceUrl: a.source_url,
-      publishedAt: a.collected_at.split('T')[0],
+      // 优先使用发布日期，没有则使用采集日期
+      publishedAt: (a.published_at || a.collected_at).split('T')[0],
       tags: a.tags,
       author: a.author || undefined,
       subCategory: a.sub_category || undefined,

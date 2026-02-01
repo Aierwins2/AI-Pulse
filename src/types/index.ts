@@ -1,4 +1,4 @@
-export type Category = 'tech-innovation' | 'benchmarking' | 'product'
+export type Category = 'tech-innovation' | 'benchmarking' | 'product' | 'insights'
 
 export interface Article {
   id: string
@@ -12,6 +12,7 @@ export interface Article {
   tags: string[]
   author?: string
   isFavorited?: boolean
+  importance?: 'high' | 'medium' | 'low'
 }
 
 export interface TrendCard {
