@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, Cpu, BarChart3, Rocket, RefreshCw, Star } from 'lucide-react'
+import { ArrowLeft, Cpu, BarChart3, Rocket, RefreshCw } from 'lucide-react'
 import { ArticleCard } from '../components'
 import { getArticles, getStats, toggleFavorite } from '../api'
 import type { Article, Stats } from '../api'

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Cpu, BarChart3, Rocket, ArrowRight, RefreshCw, Star } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { ArticleCard, TrendCard, FilterBar } from '../components'
+import { ArticleCard, TrendCard } from '../components'
 import { getArticles, getStats, getTrend, toggleFavorite } from '../api'
 import type { Article, TrendSummary, Stats } from '../api'
 import type { Category } from '../types'
