@@ -70,20 +70,7 @@ class CrawlerManager:
         all_articles = self._deduplicate(all_articles)
         self._report_progress(f"去重后文章数: {len(all_articles)}")
 
-        # 4. AI 处理（分类 + 摘要）
-        if self.ai_processor and all_articles:
-            self._report_progress("开始 AI 处理（分类和摘要生成）...")
-            processed_articles = []
-            for i, article in enumerate(all_articles):
-                try:
-                    processed = await self.ai_processor.process_article(article)
-                    processed_articles.append(processed)
-                    if (i + 1) % 5 == 0:
-                        self._report_progress(f"AI 处理进度: {i + 1}/{len(all_articles)}")
-                except Exception as e:
-                    self._report_progress(f"AI 处理文章失败: {e}")
-                    processed_articles.append(article)  # 保留原始数据
-            all_articles = processed_articles
+        # 注意：不再对每篇文章调用 AI，只在生成每日趋势时调用一次 AI
 
         results["total_articles"] = len(all_articles)
         results["articles"] = all_articles
