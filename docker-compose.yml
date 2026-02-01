@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  # 后端服务
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: aipulse-backend
+    restart: unless-stopped
+    environment:
+      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
+      - DATABASE_URL=sqlite+aiosqlite:///./data/aipulse.db
+      - DATA_RETENTION_DAYS=7
+      - CRAWLER_SCHEDULE_HOUR=9
+      - CRAWLER_SCHEDULE_MINUTE=0
+      - AI_MODEL=qwen-plus
+    volumes:
+      - ./data:/app/data  # 持久化数据库
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 前端服务
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        - VITE_API_URL=http://localhost:8000
+    container_name: aipulse-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+networks:
+  default:
+    name: aipulse-network

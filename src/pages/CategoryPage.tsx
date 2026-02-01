@@ -1,56 +1,87 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, Cpu, BarChart3, Rocket, Lightbulb } from 'lucide-react'
-import { ArticleCard, FilterBar } from '../components'
-import { mockArticles } from '../data/mockData'
+import { ArrowLeft, Cpu, BarChart3, Rocket, RefreshCw, Star } from 'lucide-react'
+import { ArticleCard } from '../components'
+import { getArticles, getStats, toggleFavorite } from '../api'
+import type { Article, Stats } from '../api'
 import type { Category } from '../types'
 import { getCategoryInfo, CATEGORIES } from '../types'
 
-const iconMap = {
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   'tech-innovation': Cpu,
   'benchmarking': BarChart3,
   'product': Rocket,
-  'insights': Lightbulb,
 }
 
 export function CategoryPage() {
   const { categoryId } = useParams<{ categoryId: Category }>()
-  const [searchQuery, setSearchQuery] = useState('')
-  const [sortBy, setSortBy] = useState<'date' | 'importance'>('date')
+  const [articles, setArticles] = useState<Article[]>([])
+  const [stats, setStats] = useState<Stats | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState('')
 
   const categoryInfo = categoryId ? getCategoryInfo(categoryId) : CATEGORIES[0]
-  const Icon = iconMap[categoryInfo.id]
+  const Icon = iconMap[categoryInfo.id] || Cpu
 
-  const filteredArticles = useMemo(() => {
-    let articles = mockArticles.filter((article) => article.category === categoryId)
+  // 加载数据
+  const loadData = async () => {
+    if (!categoryId) return
 
-    // Filter by search query
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
-      articles = articles.filter(
-        (article) =>
-          article.title.toLowerCase().includes(query) ||
-          article.summary.toLowerCase().includes(query) ||
-          article.tags.some((tag) => tag.toLowerCase().includes(query))
+    setLoading(true)
+    setError(null)
+
+    try {
+      const [articlesData, statsData] = await Promise.all([
+        getArticles({
+          category: categoryId,
+          date: selectedDate || undefined,
+        }),
+        getStats(),
+      ])
+
+      setArticles(articlesData)
+      setStats(statsData)
+    } catch (err) {
+      console.error('加载数据失败:', err)
+      setError('加载数据失败，请检查后端服务是否运行')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [categoryId, selectedDate])
+
+  // 处理收藏
+  const handleToggleFavorite = async (id: string) => {
+    try {
+      const result = await toggleFavorite(id)
+      setArticles((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, is_favorited: result.is_favorited } : a))
       )
+    } catch (err) {
+      console.error('收藏失败:', err)
     }
+  }
 
-    // Filter by date
-    if (selectedDate) {
-      articles = articles.filter((article) => article.publishedAt === selectedDate)
-    }
-
-    // Sort
-    if (sortBy === 'importance') {
-      const importanceOrder = { high: 0, medium: 1, low: 2 }
-      articles.sort((a, b) => importanceOrder[a.importance] - importanceOrder[b.importance])
-    } else {
-      articles.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
-    }
-
-    return articles
-  }, [categoryId, searchQuery, sortBy, selectedDate])
+  // 转换文章格式
+  const formattedArticles = useMemo(() => {
+    return articles.map((a) => ({
+      id: a.id,
+      title: a.title,
+      summary: a.summary || a.original_content || '',
+      category: a.category as Category,
+      source: a.source,
+      sourceUrl: a.source_url,
+      publishedAt: a.collected_at.split('T')[0],
+      tags: a.tags,
+      author: a.author || undefined,
+      subCategory: a.sub_category || undefined,
+      isFavorited: a.is_favorited,
+    }))
+  }, [articles])
 
   return (
     <div className="space-y-8">
@@ -80,32 +111,63 @@ export function CategoryPage() {
       </section>
 
       {/* Filter Bar */}
-      <FilterBar
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        selectedCategory={categoryId || 'all'}
-        onCategoryChange={() => {}}
-        sortBy={sortBy}
-        onSortChange={setSortBy}
-        selectedDate={selectedDate}
-        onDateChange={setSelectedDate}
-      />
+      <div className="flex flex-wrap items-center gap-4">
+        {/* 日期筛选 */}
+        {stats && stats.available_dates.length > 0 && (
+          <select
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-gray-200 focus:outline-none focus:border-pulse-primary"
+          >
+            <option value="">全部日期</option>
+            {stats.available_dates.map((date) => (
+              <option key={date} value={date}>
+                {date}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {/* 刷新按钮 */}
+        <button
+          onClick={loadData}
+          disabled={loading}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-800 text-gray-400 hover:bg-gray-700 transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          刷新
+        </button>
+      </div>
 
       {/* Articles */}
       <section>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-white">
             {categoryInfo.nameCn}情报
-            <span className="text-sm text-gray-500 ml-2">
-              共 {filteredArticles.length} 条
-            </span>
+            <span className="text-sm text-gray-500 ml-2">共 {articles.length} 条</span>
           </h2>
         </div>
 
-        {filteredArticles.length > 0 ? (
+        {error ? (
+          <div className="text-center py-12">
+            <p className="text-red-400 mb-4">{error}</p>
+            <button onClick={loadData} className="text-pulse-primary hover:underline">
+              重试
+            </button>
+          </div>
+        ) : loading ? (
+          <div className="text-center py-12">
+            <RefreshCw className="w-8 h-8 animate-spin text-pulse-primary mx-auto mb-4" />
+            <p className="text-gray-500">加载中...</p>
+          </div>
+        ) : formattedArticles.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredArticles.map((article) => (
-              <ArticleCard key={article.id} article={article} />
+            {formattedArticles.map((article) => (
+              <ArticleCard
+                key={article.id}
+                article={article}
+                onToggleFavorite={() => handleToggleFavorite(article.id)}
+              />
             ))}
           </div>
         ) : (
@@ -121,10 +183,10 @@ export function CategoryPage() {
       {/* Related Categories */}
       <section>
         <h3 className="text-lg font-semibold text-white mb-4">其他分类</h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {CATEGORIES.filter((cat) => cat.id !== categoryId).map((cat) => {
-            const CatIcon = iconMap[cat.id]
-            const count = mockArticles.filter((a) => a.category === cat.id).length
+            const CatIcon = iconMap[cat.id] || Cpu
+            const count = stats?.by_category[cat.id] || 0
             return (
               <Link
                 key={cat.id}

@@ -1,16 +1,17 @@
-export type Category = 'tech-innovation' | 'benchmarking' | 'product' | 'insights'
+export type Category = 'tech-innovation' | 'benchmarking' | 'product'
 
 export interface Article {
   id: string
   title: string
   summary: string
   category: Category
+  subCategory?: string
   source: string
   sourceUrl: string
   publishedAt: string
   tags: string[]
-  importance: 'high' | 'medium' | 'low'
   author?: string
+  isFavorited?: boolean
 }
 
 export interface TrendCard {
@@ -38,7 +39,7 @@ export const CATEGORIES: CategoryInfo[] = [
     id: 'tech-innovation',
     name: 'Tech-Innovation',
     nameCn: '技术创新',
-    description: '论文-技术创新：侧重模型架构、训练算力、算法改进',
+    description: '技术创新：模型架构、训练方法、算法改进（LLM、多模态等）',
     icon: 'Cpu',
     color: 'text-blue-400',
     bgColor: 'bg-blue-500/20',
@@ -47,8 +48,8 @@ export const CATEGORIES: CategoryInfo[] = [
   {
     id: 'benchmarking',
     name: 'Benchmarking',
-    nameCn: '评测方法',
-    description: '论文-评测方法：侧重评估标准、Leaderboard 更新、安全性测试',
+    nameCn: '模型评测',
+    description: '模型评测：评估标准、Benchmark、能力测试（代码、GUI等）',
     icon: 'BarChart3',
     color: 'text-emerald-400',
     bgColor: 'bg-emerald-500/20',
@@ -58,21 +59,11 @@ export const CATEGORIES: CategoryInfo[] = [
     id: 'product',
     name: 'Product',
     nameCn: '产品动态',
-    description: '产品与新功能：侧重 C 端应用、API 更新、大厂动作',
+    description: '产品动态：AI公司产品发布、功能更新、商业动态',
     icon: 'Rocket',
     color: 'text-amber-400',
     bgColor: 'bg-amber-500/20',
     borderColor: 'border-amber-500/30',
-  },
-  {
-    id: 'insights',
-    name: 'Insights',
-    nameCn: '行业洞察',
-    description: '行业洞察：侧重专家观点、政策趋势、商业逻辑',
-    icon: 'Lightbulb',
-    color: 'text-red-400',
-    bgColor: 'bg-red-500/20',
-    borderColor: 'border-red-500/30',
   },
 ]
 
