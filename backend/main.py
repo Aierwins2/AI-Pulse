@@ -211,12 +211,20 @@ async def trigger_crawl():
 
 
 @app.post("/api/trend/generate")
-async def generate_trend():
-    """手动生成今日趋势总结"""
-    from datetime import datetime
-    today = datetime.now().strftime("%Y-%m-%d")
-    await scheduler.generate_trend_for_date(today)
-    return {"status": "success", "message": f"已为 {today} 生成趋势总结"}
+async def generate_trend(date: Optional[str] = Query(None, description="日期: YYYY-MM-DD，不指定则使用最近有文章的日期")):
+    """手动生成趋势总结"""
+    target_date = date
+
+    if not target_date:
+        # 获取有文章的日期列表
+        available_dates = await database.get_available_dates()
+        if available_dates:
+            target_date = available_dates[0]  # 最近的日期
+        else:
+            return {"status": "error", "message": "没有找到任何文章数据"}
+
+    await scheduler.generate_trend_for_date(target_date)
+    return {"status": "success", "message": f"已为 {target_date} 生成趋势总结"}
 
 
 @app.get("/api/categories")
