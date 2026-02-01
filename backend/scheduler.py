@@ -65,22 +65,14 @@ class TaskScheduler:
 
             # 2. 保存文章到数据库
             articles = results.get("articles", [])
+            added_count = 0
             if articles:
                 added_count = await database.add_articles_batch(articles)
                 print(f"成功保存 {added_count} 篇新文章")
 
-                # 3. 生成每日趋势
-                today = datetime.now().strftime("%Y-%m-%d")
-                trend = await self.ai_processor.generate_daily_trend(articles, today)
-
-                await database.save_trend_summary(
-                    date=today,
-                    title=trend["title"],
-                    summary=trend["summary"],
-                    highlights=trend["highlights"],
-                    article_count=trend["article_count"]
-                )
-                print(f"每日趋势总结已生成")
+            # 3. 生成每日趋势（使用数据库中当天的所有文章）
+            today = datetime.now().strftime("%Y-%m-%d")
+            await self.generate_trend_for_date(today)
 
             # 4. 记录爬取日志
             await database.add_crawl_log(
@@ -112,6 +104,42 @@ class TaskScheduler:
             print(f"[{datetime.now()}] 过期数据清理完成")
         except Exception as e:
             print(f"清理过期数据失败: {e}")
+
+    async def generate_trend_for_date(self, date: str):
+        """为指定日期生成趋势总结"""
+        try:
+            # 从数据库获取当天的所有文章
+            db_articles = await database.get_articles(date=date, limit=100)
+            if not db_articles:
+                print(f"日期 {date} 没有文章，跳过趋势生成")
+                return
+
+            # 转换为字典格式
+            articles_data = []
+            for a in db_articles:
+                articles_data.append({
+                    "title": a.title,
+                    "summary": a.summary,
+                    "original_content": a.original_content,
+                    "category": a.category,
+                    "source": a.source,
+                })
+
+            # 生成趋势
+            trend = await self.ai_processor.generate_daily_trend(articles_data, date)
+
+            # 保存趋势
+            await database.save_trend_summary(
+                date=date,
+                title=trend["title"],
+                summary=trend["summary"],
+                highlights=trend["highlights"],
+                article_count=trend["article_count"]
+            )
+            print(f"每日趋势总结已生成: {trend['title']}")
+
+        except Exception as e:
+            print(f"生成趋势总结失败: {e}")
 
     async def run_crawl_now(self) -> dict:
         """立即执行一次爬取（手动触发）"""
