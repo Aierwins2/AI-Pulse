@@ -1,6 +1,7 @@
-"""AI 处理模块 - 使用 dashscope 进行分类和摘要生成"""
+"""AI 处理模块 - 使用规则分类 + dashscope 生成每日趋势"""
 import json
 import asyncio
+import re
 from typing import Optional
 import dashscope
 from dashscope import Generation
@@ -9,7 +10,7 @@ from config import settings
 
 
 class AIProcessor:
-    """AI 处理器 - 文章分类和摘要生成"""
+    """AI 处理器 - 规则分类 + 每日趋势生成"""
 
     # 分类定义
     CATEGORIES = {
@@ -30,93 +31,114 @@ class AIProcessor:
         }
     }
 
+    # 产品动态关键词（公司/产品名）
+    PRODUCT_KEYWORDS = [
+        "openai", "gpt-4", "gpt-5", "chatgpt", "dall-e", "sora",
+        "anthropic", "claude",
+        "google", "gemini", "bard", "deepmind",
+        "meta", "llama",
+        "microsoft", "copilot", "bing",
+        "百度", "文心", "ernie", "阿里", "通义", "qwen", "腾讯", "混元",
+        "字节", "豆包", "coze", "智谱", "chatglm",
+        "发布", "上线", "更新", "推出", "开放", "收购", "融资", "合作"
+    ]
+
+    # 评测关键词
+    BENCHMARK_KEYWORDS = [
+        "bench", "eval", "evaluation", "benchmark", "leaderboard",
+        "测试", "评测", "评估", "排行", "对比", "comparison",
+        "mmlu", "humaneval", "gsm8k", "hellaswag", "arc", "winogrande"
+    ]
+
     def __init__(self):
         self.api_key = settings.dashscope_api_key
         self.model = settings.ai_model
 
     async def process_article(self, article: dict) -> dict:
-        """处理单篇文章：分类 + 生成摘要"""
+        """处理单篇文章：纯规则分类，不调用API"""
         title = article.get("title", "")
         content = article.get("original_content", "")
         source = article.get("source", "")
 
-        # 1. 分类
-        category, sub_category = await self._classify_article(title, content, source)
+        # 规则分类
+        category, sub_category = self._classify_by_rules(title, content, source)
         article["category"] = category
         article["sub_category"] = sub_category
 
-        # 2. 生成摘要
-        if content:
-            summary = await self._generate_summary(title, content)
-            article["summary"] = summary
+        # 摘要直接使用原始内容的前200字
+        if content and not article.get("summary"):
+            article["summary"] = content[:200]
 
         return article
 
-    async def _classify_article(self, title: str, content: str, source: str) -> tuple[str, str]:
-        """对文章进行分类"""
-        # 规则优先：标题包含 "bench" 时直接归类到模型评测
+    def _classify_by_rules(self, title: str, content: str, source: str) -> tuple[str, str]:
+        """纯规则分类，不调用API"""
+        text = f"{title} {content}".lower()
         title_lower = title.lower()
-        if "bench" in title_lower:
-            return "benchmarking", "其他"
 
-        prompt = f"""请对以下AI领域的文章进行分类。
+        # 1. 评测类：标题或内容包含评测关键词
+        for keyword in self.BENCHMARK_KEYWORDS:
+            if keyword in title_lower or keyword in text:
+                sub_cat = self._get_benchmark_subcategory(text)
+                return "benchmarking", sub_cat
 
-文章标题：{title}
-文章来源：{source}
-文章内容：{content[:1000] if content else '无'}
+        # 2. 产品动态：包含公司/产品名或商业关键词
+        for keyword in self.PRODUCT_KEYWORDS:
+            if keyword in text:
+                sub_cat = self._get_product_subcategory(text)
+                return "product", sub_cat
 
-请从以下三个主分类中选择最合适的一个：
-1. tech-innovation（技术创新）：涉及模型架构、训练方法、算法改进的论文和技术文章
-2. benchmarking（模型评测）：涉及评估标准、Benchmark、安全性测试、能力评测的内容
-3. product（产品动态）：AI公司的产品发布、功能更新、商业动态
+        # 3. 默认：技术创新（论文通常是技术创新）
+        sub_cat = self._get_tech_subcategory(text)
+        return "tech-innovation", sub_cat
 
-同时，请选择一个子分类：
-- 技术创新子分类：LLM, 多模态, 强化学习, 模型压缩, 推理优化, 架构创新, 训练方法, 其他
-- 模型评测子分类：代码能力, 推理能力, 多模态, 安全性, GUI/Agent, 语言理解, 其他
-- 产品动态子分类：OpenAI, Anthropic, Google, Meta, Microsoft, 国内厂商, 创业公司, 其他
+    def _get_benchmark_subcategory(self, text: str) -> str:
+        """获取评测子分类"""
+        if any(k in text for k in ["code", "代码", "humaneval", "mbpp"]):
+            return "代码能力"
+        if any(k in text for k in ["reason", "推理", "gsm", "math"]):
+            return "推理能力"
+        if any(k in text for k in ["multimodal", "多模态", "vision", "image", "video"]):
+            return "多模态"
+        if any(k in text for k in ["safe", "安全", "toxic", "bias"]):
+            return "安全性"
+        if any(k in text for k in ["agent", "gui", "web", "tool"]):
+            return "GUI/Agent"
+        return "其他"
 
-请以JSON格式返回，格式如下：
-{{"category": "分类ID", "sub_category": "子分类名称"}}
+    def _get_product_subcategory(self, text: str) -> str:
+        """获取产品子分类"""
+        if any(k in text for k in ["openai", "gpt", "chatgpt", "dall-e", "sora"]):
+            return "OpenAI"
+        if any(k in text for k in ["anthropic", "claude"]):
+            return "Anthropic"
+        if any(k in text for k in ["google", "gemini", "bard", "deepmind"]):
+            return "Google"
+        if any(k in text for k in ["meta", "llama"]):
+            return "Meta"
+        if any(k in text for k in ["microsoft", "copilot", "bing"]):
+            return "Microsoft"
+        if any(k in text for k in ["百度", "文心", "阿里", "通义", "腾讯", "混元", "字节", "豆包", "智谱"]):
+            return "国内厂商"
+        return "创业公司"
 
-只返回JSON，不要其他内容。"""
-
-        try:
-            result = await self._call_api(prompt)
-            if result:
-                # 解析 JSON
-                data = json.loads(result)
-                category = data.get("category", "tech-innovation")
-                sub_category = data.get("sub_category", "其他")
-
-                # 验证分类是否有效
-                if category not in self.CATEGORIES:
-                    category = "tech-innovation"
-
-                return category, sub_category
-        except Exception as e:
-            print(f"分类失败: {e}")
-
-        # 默认分类
-        return "tech-innovation", "其他"
-
-    async def _generate_summary(self, title: str, content: str) -> str:
-        """生成文章摘要"""
-        prompt = f"""请为以下AI领域的文章生成一段简洁的中文摘要（100-150字）。
-摘要应该突出文章的核心观点、技术创新点或重要信息。
-
-文章标题：{title}
-文章内容：{content[:2000] if content else '无详细内容'}
-
-请直接返回摘要内容，不要包含"摘要："等前缀。"""
-
-        try:
-            result = await self._call_api(prompt)
-            if result:
-                return result.strip()
-        except Exception as e:
-            print(f"生成摘要失败: {e}")
-
-        return content[:200] if content else ""
+    def _get_tech_subcategory(self, text: str) -> str:
+        """获取技术创新子分类"""
+        if any(k in text for k in ["llm", "language model", "大模型", "大语言"]):
+            return "LLM"
+        if any(k in text for k in ["multimodal", "多模态", "vision", "image", "video", "audio"]):
+            return "多模态"
+        if any(k in text for k in ["reinforcement", "rlhf", "强化学习", "reward"]):
+            return "强化学习"
+        if any(k in text for k in ["quantiz", "prune", "distill", "compress", "量化", "蒸馏", "剪枝"]):
+            return "模型压缩"
+        if any(k in text for k in ["inference", "推理优化", "加速", "accelerat", "efficient"]):
+            return "推理优化"
+        if any(k in text for k in ["attention", "transformer", "架构", "mamba", "ssm"]):
+            return "架构创新"
+        if any(k in text for k in ["train", "pretrain", "finetun", "训练"]):
+            return "训练方法"
+        return "其他"
 
     async def generate_daily_trend(self, articles: list[dict], date: str) -> dict:
         """生成每日趋势总结"""
