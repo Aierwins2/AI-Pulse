@@ -54,6 +54,11 @@ class AIProcessor:
 
     async def _classify_article(self, title: str, content: str, source: str) -> tuple[str, str]:
         """对文章进行分类"""
+        # 规则优先：标题包含 "bench" 时直接归类到模型评测
+        title_lower = title.lower()
+        if "bench" in title_lower:
+            return "benchmarking", "其他"
+
         prompt = f"""请对以下AI领域的文章进行分类。
 
 文章标题：{title}

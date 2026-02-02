@@ -84,18 +84,18 @@ async def get_articles(
         if category:
             conditions.append(Article.category == category)
         if date:
-            # 解析日期，筛选当天的文章
+            # 解析日期，根据发布日期筛选当天的文章
             target_date = datetime.strptime(date, "%Y-%m-%d")
             next_date = target_date + timedelta(days=1)
-            conditions.append(Article.collected_at >= target_date)
-            conditions.append(Article.collected_at < next_date)
+            conditions.append(Article.published_at >= target_date)
+            conditions.append(Article.published_at < next_date)
         if favorites_only:
             conditions.append(Article.is_favorited == True)
 
         if conditions:
             query = query.where(and_(*conditions))
 
-        query = query.order_by(Article.collected_at.desc()).offset(offset).limit(limit)
+        query = query.order_by(Article.published_at.desc()).offset(offset).limit(limit)
 
         result = await session.execute(query)
         return result.scalars().all()
@@ -126,12 +126,12 @@ async def toggle_favorite(article_id: str) -> Optional[bool]:
 
 
 async def get_available_dates() -> list[str]:
-    """获取有数据的日期列表"""
+    """获取有数据的日期列表（基于发布日期）"""
     async with async_session() as session:
         result = await session.execute(
-            select(func.date(Article.collected_at).label("date"))
+            select(func.date(Article.published_at).label("date"))
             .distinct()
-            .order_by(func.date(Article.collected_at).desc())
+            .order_by(func.date(Article.published_at).desc())
         )
         dates = result.scalars().all()
         return [str(d) for d in dates if d]
@@ -231,15 +231,15 @@ async def add_crawl_log(source: str, status: str, articles_count: int = 0,
 # ============ 数据清理 ============
 
 async def cleanup_old_articles():
-    """清理过期文章（保留收藏的）"""
+    """清理过期文章（基于发布日期，保留收藏的）"""
     async with async_session() as session:
         cutoff_date = datetime.utcnow() - timedelta(days=settings.data_retention_days)
 
-        # 删除超过保留期且未收藏的文章
+        # 删除发布日期超过保留期且未收藏的文章
         await session.execute(
             delete(Article).where(
                 and_(
-                    Article.collected_at < cutoff_date,
+                    Article.published_at < cutoff_date,
                     Article.is_favorited == False
                 )
             )

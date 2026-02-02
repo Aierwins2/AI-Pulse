@@ -1,8 +1,10 @@
 """HuggingFace Papers 爬虫"""
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 from .base import BaseCrawler
+
+from config import settings
 
 
 class HuggingFaceCrawler(BaseCrawler):
@@ -15,32 +17,42 @@ class HuggingFaceCrawler(BaseCrawler):
         self.papers_url = "https://huggingface.co/papers"
 
     async def crawl(self) -> list[dict]:
-        """爬取 HuggingFace 每日论文"""
-        print(f"[{self.source_name}] 开始爬取论文...")
+        """爬取 HuggingFace 最近7天的论文"""
+        print(f"[{self.source_name}] 开始爬取最近 {settings.data_retention_days} 天的论文...")
 
-        html = await self.fetch_page(self.papers_url)
-        if not html:
-            return []
+        all_articles = []
+        today = datetime.utcnow().date()
 
-        soup = self.parse_html(html)
-        articles = []
+        # 爬取最近7天的论文
+        for days_ago in range(settings.data_retention_days):
+            target_date = today - timedelta(days=days_ago)
+            date_str = target_date.strftime("%Y-%m-%d")
+            url = f"{self.papers_url}?date={date_str}"
 
-        # 查找论文卡片
-        paper_cards = soup.select("article")
-
-        for card in paper_cards:
-            try:
-                article = self._parse_paper_card(card)
-                if article:
-                    articles.append(article)
-            except Exception as e:
-                print(f"[{self.source_name}] 解析论文卡片失败: {e}")
+            html = await self.fetch_page(url)
+            if not html:
                 continue
 
-        print(f"[{self.source_name}] 爬取完成，共 {len(articles)} 篇论文")
-        return articles
+            soup = self.parse_html(html)
 
-    def _parse_paper_card(self, card) -> Optional[dict]:
+            # 查找论文卡片
+            paper_cards = soup.select("article")
+
+            for card in paper_cards:
+                try:
+                    article = self._parse_paper_card(card, target_date)
+                    if article:
+                        all_articles.append(article)
+                except Exception as e:
+                    print(f"[{self.source_name}] 解析论文卡片失败: {e}")
+                    continue
+
+            print(f"[{self.source_name}] {date_str} 爬取了 {len(paper_cards)} 篇论文")
+
+        print(f"[{self.source_name}] 爬取完成，共 {len(all_articles)} 篇论文")
+        return all_articles
+
+    def _parse_paper_card(self, card, paper_date=None) -> Optional[dict]:
         """解析单个论文卡片"""
         # 获取标题和链接
         title_elem = card.select_one("h3 a")
@@ -76,6 +88,12 @@ class HuggingFaceCrawler(BaseCrawler):
         if arxiv_match:
             tags.append(f"arXiv:{arxiv_match.group(1)}")
 
+        # 使用传入的日期作为发布日期
+        if paper_date:
+            published_at = datetime.combine(paper_date, datetime.min.time())
+        else:
+            published_at = datetime.utcnow()
+
         return {
             "id": self.generate_id(paper_url),
             "title": title,
@@ -84,7 +102,7 @@ class HuggingFaceCrawler(BaseCrawler):
             "source_url": paper_url,
             "author": author,
             "tags": ",".join(tags) if tags else None,
-            "published_at": datetime.utcnow(),
+            "published_at": published_at,
             "collected_at": datetime.utcnow(),
             # 分类由 AI 处理模块后续填充
             "category": "tech-innovation",  # 默认值，后续 AI 会重新分类
