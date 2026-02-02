@@ -63,8 +63,7 @@ docker-compose up -d --build
 ```
 
 4. **访问网站**
-- 前端：http://localhost
-- API：http://localhost:8000
+- 需自行部署
 
 ### 手动触发数据采集
 
