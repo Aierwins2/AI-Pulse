@@ -5,6 +5,8 @@ from typing import Optional
 from urllib.parse import urljoin, urlparse
 from .base import BaseCrawler
 
+from config import settings
+
 
 # 需要过滤的社交媒体和登录页面域名
 BLOCKED_DOMAINS = [
@@ -162,6 +164,11 @@ class MediaCrawler(BaseCrawler):
 
                 # 尝试提取发布日期
                 published_at = self._extract_publish_date(link, parent)
+
+                # 过滤超过7天的旧文章
+                cutoff_date = datetime.utcnow() - timedelta(days=settings.data_retention_days)
+                if published_at < cutoff_date:
+                    continue
 
                 article = {
                     "id": self.generate_id(full_url),
